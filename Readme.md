@@ -1,4 +1,4 @@
-# AI Interview Coach
+# AdaptIQ
 
 An adaptive, AI-powered technical interview simulator. Upload a resume, and the app extracts your skills, indexes it with FAISS for semantic retrieval, conducts a context-aware mock interview that adapts question difficulty to your answers, and evaluates each response in real time.
 
