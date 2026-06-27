@@ -4,6 +4,7 @@ from utils.pdf_parser import extract_chunks
 from utils.skill_extractor import extract_skills
 from utils.interviewer import generate_question
 from utils.evaluator import evaluate_answer
+from utils.vector_store import create_vectorstore, get_resume_context
 
 
 # ----------------------------------------------------------------------------
@@ -127,6 +128,7 @@ st.markdown(
 defaults = {
     "resume_text": None,
     "resume_chunks": None,
+    "resume_context": None,   # FAISS-retrieved excerpt used as interview context
     "skills": None,
     "interview_started": False,
     "current_question": None,
@@ -145,6 +147,7 @@ def reset_interview_state():
     """Reset everything tied to a resume/interview session."""
     st.session_state.resume_text = None
     st.session_state.resume_chunks = None
+    st.session_state.resume_context = None
     st.session_state.skills = None
     st.session_state.interview_started = False
     st.session_state.current_question = None
@@ -172,13 +175,19 @@ with st.sidebar:
 
     if uploaded_file is not None:
         if st.button("Process Resume", use_container_width=True):
-            with st.spinner("Extracting text and skills from resume..."):
+            with st.spinner("Extracting text from resume..."):
                 reset_interview_state()
 
                 text, chunks = extract_chunks(uploaded_file)
                 st.session_state.resume_text = text
                 st.session_state.resume_chunks = chunks
 
+            with st.spinner("Indexing resume for semantic search..."):
+                db = create_vectorstore(chunks)
+                resume_context = get_resume_context(db)
+                st.session_state.resume_context = resume_context
+
+            with st.spinner("Extracting skills..."):
                 skills = extract_skills(text)
                 # Clean whitespace/empties without inventing or hardcoding any skill
                 cleaned_skills = [s.strip() for s in skills if s and s.strip()]
@@ -265,7 +274,7 @@ with left:
         if st.button("🚀 Start Interview", use_container_width=True):
             with st.spinner("Preparing your first question..."):
                 question = generate_question(
-                    st.session_state.resume_text,
+                    st.session_state.resume_context,
                     st.session_state.history,
                 )
                 st.session_state.current_question = question
@@ -328,7 +337,7 @@ with left:
             if next_clicked:
                 with st.spinner("Generating adaptive follow-up question..."):
                     next_question = generate_question(
-                        st.session_state.resume_text,
+                        st.session_state.resume_context,
                         st.session_state.history,
                     )
                     st.session_state.current_question = next_question
